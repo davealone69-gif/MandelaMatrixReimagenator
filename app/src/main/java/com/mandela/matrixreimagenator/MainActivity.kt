@@ -3,7 +3,6 @@ package com.mandela.matrixreimagenator
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -24,15 +23,21 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mandela.matrixreimagenator.ui.theme.AppTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var tabCallback: ((Int) -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AppTheme {
                 Surface(Modifier = Modifier.fillMaxSize()) {
-                    MandelaApp(onAbout = { showAbout() })
+                    MandelaApp(
+                        onAbout = { showAbout() },
+                        onRegisterTab = { cb -> tabCallback = cb }
+                    )
                 }
             }
         }
@@ -44,10 +49,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
-        R.id.action_recreate -> { Toast.makeText(this, "Recreate App", Toast.LENGTH_SHORT).show(); true }
-        R.id.action_swarm -> { Toast.makeText(this, "Swarm Builder", Toast.LENGTH_SHORT).show(); true }
-        R.id.action_vibe -> { Toast.makeText(this, "Personal Vibe Adjust", Toast.LENGTH_SHORT).show(); true }
-        R.id.action_tools -> { Toast.makeText(this, "Modular Tools", Toast.LENGTH_SHORT).show(); true }
+        R.id.action_recreate -> { tabCallback?.invoke(0); true }
+        R.id.action_swarm -> { tabCallback?.invoke(2); true }
+        R.id.action_vibe -> { tabCallback?.invoke(3); true }
+        R.id.action_tools -> { tabCallback?.invoke(4); true }
         R.id.action_about -> { showAbout(); true }
         else -> super.onOptionsItemSelected(item)
     }
@@ -70,16 +75,18 @@ enum class Tab(val title: String, val icon: ImageVector) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MandelaApp(onAbout: () -> Unit) {
+fun MandelaApp(onAbout: () -> Unit, onRegisterTab: ((Int) -> Unit) -> Unit) {
     val tabs = Tab.entries
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
 
+    LaunchedEffect(Unit) {
+        onRegisterTab { index -> scope.launch { pagerState.animateScrollToPage(index) } }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Mandela Re-imagenator • ${tabs[pagerState.currentPage].title}") }
-            )
+            TopAppBar(title = { Text("Mandela Re-imagenator • ${tabs[pagerState.currentPage].title}") })
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -97,9 +104,9 @@ fun MandelaApp(onAbout: () -> Unit) {
                 when (tabs[page]) {
                     Tab.Core -> CoreScreen()
                     Tab.Mandela -> MandelaCoreScreen()
-                    Tab.Swarm -> SimpleCardScreen("Swarm Builder", "Deploy agent swarms to rebuild apps with your vibe.")
-                    Tab.Vibe -> SimpleCardScreen("Personal Vibe", "Adjust tone, style and personality of generated code.")
-                    Tab.Tools -> SimpleCardScreen("Modular Tools", "APK auditor, image tools, training centre.")
+                    Tab.Swarm -> SwarmScreen()
+                    Tab.Vibe -> VibeScreen()
+                    Tab.Tools -> ToolsScreen()
                 }
             }
         }
@@ -108,16 +115,45 @@ fun MandelaApp(onAbout: () -> Unit) {
 
 @Composable
 fun CoreScreen() {
+    var projectName by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Re-imagenator Core", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Recreate any app with personal vibe adjustment. Built by REDRUM Studios.")
-        Card(Modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Quick Actions", fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Recreate App") }
-                OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Import Project") }
-            }
+        Text("Recreate any app with personal vibe. Built by REDRUM Studios.")
+        OutlinedTextField(
+            value = projectName,
+            onValueChange = { projectName = it },
+            label = { Text("App / project name") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (running) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(status)
+        }
+        Button(
+            onClick = {
+                if (projectName.isBlank() || running) return@Button
+                running = true
+                scope.launch {
+                    status = "Analysing structure…"
+                    delay(700)
+                    status = "Applying vibe…"
+                    delay(700)
+                    status = "Rebuilding $projectName…"
+                    delay(800)
+                    status = "Done — $projectName re-imaged"
+                    running = false
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = projectName.isNotBlank() && !running
+        ) { Text("Recreate App") }
+        OutlinedButton(onClick = { projectName = ""; status = "" }, modifier = Modifier.fillMaxWidth()) {
+            Text("Clear")
         }
     }
 }
@@ -184,15 +220,169 @@ fun MandelaCoreScreen() {
     }
 }
 
+data class Agent(val id: String, val name: String, val role: String, val active: Boolean)
+
 @Composable
-fun SimpleCardScreen(title: String, body: String) {
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(body)
+fun SwarmScreen() {
+    var agents by remember {
+        mutableStateOf(listOf(
+            Agent("1", "Architect", "App structure", true),
+            Agent("2", "Coder", "Kotlin / Compose", true),
+            Agent("3", "Vibe Injector", "Personal style", true),
+            Agent("4", "Tester", "Smoke checks", false)
+        ))
+    }
+    var running by remember { mutableStateOf(false) }
+    var log by remember { mutableStateOf(listOf<String>()) }
+    val scope = rememberCoroutineScope()
+    val active = agents.count { it.active }
+
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("Swarm Builder", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("$active agents ready to rebuild")
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+            items(agents, key = { it.id }) { agent ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(agent.name, fontWeight = FontWeight.SemiBold)
+                            Text(agent.role, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(checked = agent.active, onCheckedChange = {
+                            agents = agents.map { if (it.id == agent.id) it.copy(active = !it.active) else it }
+                        })
+                    }
+                }
+            }
+            items(log) { line -> Text(line, style = MaterialTheme.typography.bodySmall) }
+        }
+        if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Button(
+            onClick = {
+                if (active == 0 || running) return@Button
+                running = true
+                log = emptyList()
+                scope.launch {
+                    agents.filter { it.active }.forEach { a ->
+                        log = log + "→ ${a.name} working…"
+                        delay(500)
+                        log = log + "✓ ${a.name} done"
+                    }
+                    log = log + "Swarm complete"
+                    running = false
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = active > 0 && !running
+        ) { Text("Deploy Swarm ($active)") }
+    }
+}
+
+@Composable
+fun VibeScreen() {
+    var tone by remember { mutableStateOf(0.5f) }
+    var chaos by remember { mutableStateOf(0.2f) }
+    var formal by remember { mutableStateOf(0.4f) }
+    var preview by remember { mutableStateOf("Adjust sliders to set generation vibe.") }
+
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("Personal Vibe", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Controls how recreated code and UI feel.")
+
+        Text("Tone (calm → bold)")
+        Slider(value = tone, onValueChange = {
+            tone = it
+            preview = vibePreview(tone, chaos, formal)
+        })
+        Text("Chaos (strict → wild)")
+        Slider(value = chaos, onValueChange = {
+            chaos = it
+            preview = vibePreview(tone, chaos, formal)
+        })
+        Text("Formality (casual → formal)")
+        Slider(value = formal, onValueChange = {
+            formal = it
+            preview = vibePreview(tone, chaos, formal)
+        })
+
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Text("Coming online…")
-                Text("Built by REDRUM Studios", style = MaterialTheme.typography.bodySmall)
+                Text("Preview", fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text(preview)
+            }
+        }
+    }
+}
+
+private fun vibePreview(tone: Float, chaos: Float, formal: Float): String {
+    val t = when {
+        tone < 0.33f -> "calm"
+        tone < 0.66f -> "balanced"
+        else -> "bold"
+    }
+    val c = when {
+        chaos < 0.33f -> "strict"
+        chaos < 0.66f -> "flexible"
+        else -> "wild"
+    }
+    val f = when {
+        formal < 0.33f -> "casual"
+        formal < 0.66f -> "neutral"
+        else -> "formal"
+    }
+    return "Vibe: $t · $c · $f"
+}
+
+@Composable
+fun ToolsScreen() {
+    var apkName by remember { mutableStateOf("") }
+    var auditResult by remember { mutableStateOf("") }
+    var running by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Modular Tools", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("APK Auditor", fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = apkName,
+                    onValueChange = { apkName = it },
+                    label = { Text("APK / package name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (running) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Button(
+                    onClick = {
+                        if (apkName.isBlank() || running) return@Button
+                        running = true
+                        scope.launch {
+                            delay(1000)
+                            auditResult = "Audit $apkName\n• minSdk ok\n• no obvious trackers\n• size estimate normal"
+                            running = false
+                        }
+                    },
+                    enabled = apkName.isNotBlank() && !running
+                ) { Text("Run Audit") }
+                if (auditResult.isNotBlank()) Text(auditResult, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Image Tools", fontWeight = FontWeight.SemiBold)
+                Text("Resize, tag, and stage assets for re-imaged apps.")
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Training Centre", fontWeight = FontWeight.SemiBold)
+                Text("Feed examples so vibe and swarm improve over time.")
             }
         }
     }
