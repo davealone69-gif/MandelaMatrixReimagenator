@@ -14,16 +14,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mandela.matrixreimagenator.ui.theme.AppTheme
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            Surface(modifier = Modifier.fillMaxSize()) {
-                MainScreen()
-            }
-        }
+        setContent { AppTheme { Surface(modifier = Modifier.fillMaxSize()) { MainScreen() } } }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -31,30 +27,13 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_recreate -> {
-                Toast.makeText(this, "Recreate App", Toast.LENGTH_SHORT).show()
-                true
-            }
-            R.id.action_swarm -> {
-                Toast.makeText(this, "Swarm Builder", Toast.LENGTH_SHORT).show()
-                true
-            }
-            R.id.action_vibe -> {
-                Toast.makeText(this, "Personal Vibe Adjust", Toast.LENGTH_SHORT).show()
-                true
-            }
-            R.id.action_tools -> {
-                Toast.makeText(this, "Modular Tools", Toast.LENGTH_SHORT).show()
-                true
-            }
-            R.id.action_about -> {
-                showAboutDialog()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.action_recreate -> { toast("Recreate App"); true }
+        R.id.action_swarm -> { toast("Swarm Builder"); true }
+        R.id.action_vibe -> { toast("Personal Vibe Adjust"); true }
+        R.id.action_tools -> { toast("Modular Tools"); true }
+        R.id.action_about -> { showAbout(); true }
+        else -> super.onOptionsItemSelected(item)
     }
 
     override fun onCreateContextMenu(menu: ContextMenu, v: View, menuInfo: ContextMenu.ContextMenuInfo?) {
@@ -62,41 +41,29 @@ class MainActivity : ComponentActivity() {
         menuInflater.inflate(R.menu.context_menu, menu)
     }
 
-    override fun onContextItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.ctx_open -> { Toast.makeText(this, "Open Project", Toast.LENGTH_SHORT).show(); true }
-            R.id.ctx_vibe -> { Toast.makeText(this, "Adjust Vibe", Toast.LENGTH_SHORT).show(); true }
-            R.id.ctx_export -> { Toast.makeText(this, "Export", Toast.LENGTH_SHORT).show(); true }
-            R.id.ctx_delete -> { Toast.makeText(this, "Delete", Toast.LENGTH_SHORT).show(); true }
-            else -> super.onContextItemSelected(item)
-        }
+    override fun onContextItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.ctx_open -> { toast("Open Project"); true }
+        R.id.ctx_vibe -> { toast("Adjust Vibe"); true }
+        R.id.ctx_export -> { toast("Export"); true }
+        R.id.ctx_delete -> { toast("Delete"); true }
+        else -> super.onContextItemSelected(item)
     }
 
-    private fun showAboutDialog() {
+    private fun showAbout() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Mandela vs Matrix Re-imagenator")
-            .setMessage(
-                "Version 1.0.0\n\n" +
-                "Giant creation assistant + swarm builder\n" +
-                "Recreate apps with personal vibe adjustment\n\n" +
-                "Built by REDRUM Studios"
-            )
-            .setPositiveButton("OK", null)
-            .show()
+            .setMessage("Version 1.0.0\n\nGiant creation assistant + swarm builder\nRecreate apps with personal vibe adjustment\n\nBuilt by REDRUM Studios")
+            .setPositiveButton("OK", null).show()
     }
+
+    private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 }
 
 @Composable
 fun MainScreen() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    Column(Modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Text("Mandela vs Matrix Re-imagenator", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier = Modifier.height(8.dp))
         Text("Built by REDRUM Studios", style = MaterialTheme.typography.bodyMedium)
     }
 }
