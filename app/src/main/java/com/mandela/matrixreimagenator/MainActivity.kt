@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             AppTheme {
-                Surface(Modifier = Modifier.fillMaxSize()) {
+                Surface(modifier = Modifier.fillMaxSize()) {
                     MandelaApp(
                         onAbout = { showAbout() },
                         onRegisterTab = { cb -> tabCallback = cb }
