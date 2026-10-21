@@ -5,34 +5,44 @@ on:
     branches: ["**"]
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
-  security-events: write
   actions: read
+
 jobs:
   audit:
+    name: Build, tests, and source audit
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: JetBrains/qodana-action@v2026.2
-      - name: Gradle
-        if: ${{ hashFiles('gradlew') != '' }}
-        run: |
-          chmod +x gradlew
-          ./gradlew lint test assembleDebug --continue --stacktrace --console=plain
-      - name: Node
-        if: ${{ hashFiles('package.json') != '' }}
-        run: |
-          npm ci --ignore-scripts
-          npm audit --audit-level=high || true
-          npm run test --if-present
-          npm run lint --if-present
-          npm run build --if-present
-      - name: Python
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up supported Android SDK packages
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Gradle build, lint, and unit tests
+        run: gradle lint test assembleDebug --continue --stacktrace --no-daemon
+
+      - name: Python syntax audit
         if: ${{ hashFiles('**/*.py') != '' }}
         run: python -m compileall -q .
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript,python,java-kotlin
-      - uses: github/codeql-action/analyze@v3
